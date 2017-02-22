@@ -1,13 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
-    <script type="text/babel" >
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
+  <script type="text/babel" >
         "use strict";
-    
-    </script>
+
+    const user = `user${(Math.floor((Math.random()*1000))+1)}`;
+    let canvas;
+    let ctx;
+    //our websocket connection
+    let socket; 
+
+    let draws = {};
+
+    const draw = () => {
+       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      let keys = Object.keys(draws);
+      
+      for (let i = 0; i < keys.length; i++) {
+        const drawCall = draws[keys[i]];
+        ctx.fillStyle = drawCall.color;
+        ctx.fillRect(drawCall.x, drawCall.y, drawCall.width, drawCall.height);
+      }
+    };
+    // when you add a shape, add it to objects and tell the server 
+    const addShape = (e) => {
+    const time = new Date().getTime();
+    let x = Math.floor(Math.random() * (300-10)+10);
+    let y = Math.floor(Math.random() * (300-10)+10);
+          
+    draws[user] = { lastUpdate: time, x: x, y: y, width: 50, height: 50, color: 'black' };
+    draw();
+
+    socket.emit('addShape', {user: user, lastUpdate: time, x: x, y: y });
+    };
+
+    const updatePosition = () => {
+      const message = {
+          user: user,
+          xUpdate: 10,
+          yUpdate: 5
+      }
+      draws[user].x 
+      socket.emit('movementUpdate', message);
+    };
+
+    const init = () => {
+      canvas = document.querySelector("#canvas");
+      ctx = canvas.getContext("2d");
+        
+      socket = io.connect();
+      
+      socket.on('connect', function () {
+        addShape(); 
+        setInterval(updatePosition, 3000);
+      });      
+      
+      // when another client has added a shape
+      socket.on('fromServer', (data) => {
+        if(!draws[data.user]) {
+          draws[data.user] = data.coords;
+        }
+        else if (data.coords.lastUpdate > draws[data.user].lastUpdate) {
+          draws[data.user] = data.coords;
+          if (data.user === user) {
+            draws[data.user].color = 'black';
+          }
+        }
+        draw();
+      });
+    };
+
+    window.onload = init;
+  </script>
 </head>
 <body>
-
+<canvas id="canvas" height="500" width="500">Please use an HTML 5 browser</canvas>
 </body>
 </html>
